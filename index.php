@@ -1,20 +1,23 @@
 <?php 
 
-require_once("vendor/autoload.php");
 
-$app = new \Slim\Slim();
+require_once("vendor/autoload.php");
+use \Slim\Slim;
+use \Hcode\Page;
+
+
+
+$app = new Slim();
 
 $app->config('debug', true);//ta debug irar dizer os erros
 
 $app->get('/', function() {
-    //Chamando classe sql
-	$sql = new Hcode\DB\Sql();
+    
 
-	//executando query
+	$page = new Page();///Chamando o construct que vai add o heade na tela
 
-	$results = $sql->select("SELECT * FROM tb_users");
-
-	echo json_encode($results);
+	$page->setTpl("index");
+	
 
 });
 
