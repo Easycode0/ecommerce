@@ -15,6 +15,9 @@ class Cart extends Model
 {
 
 	const SESSION = "Cart";
+	///Constante dos Erros
+	const SESSION_ERROR = "CartError";
+
 
 	public static function getFromSession()
 	{
@@ -112,6 +115,9 @@ class Cart extends Model
 			':idcart'=>$this->getidcart(),
 			':idproduct'=>$product->getidproduct()
 		]);
+
+		///metodo que irar atualizar o valor  de acordo com o total de itens no carrinho
+		$this->getCalculateTotal();
 	}
 
 	public function removeProduct(Product $product, $all = false)
@@ -133,6 +139,9 @@ class Cart extends Model
 			]); 
 
 		}
+		///metodo que irar atualizar o valor  de acordo com o total de itens no carrinho
+		$this->getCalculateTotal();
+
 	}
 
 	public function getProducts()
@@ -152,6 +161,175 @@ class Cart extends Model
 
 		return Product::checkList($rows);
 	}
+
+
+	public function getProductsTotals()
+	{
+
+		                                            ///ANDERSON DO PASSADO FALANDO: ESSE METODO TRAZ A SOMA DE TODOS OS ATRIBUTOS DO PRODUTO/////
+
+		$sql = new Sql(); 
+
+		$results = $sql->select("
+			SELECT SUM(vlprice) AS vlprice, SUM(vlwidth) AS vlwidth, SUM(vlheight) AS vlheight, SUM(vllength) AS vllength, SUM(vlweight) AS vlweight, COUNT(*) AS nrqtd
+			 FROM tb_products a
+			 INNER JOIN tb_cartsproducts b ON a.idproduct = b.idproduct
+			 WHERE b.idcart = :idcart AND dtremoved IS NULL;
+			", [
+				':idcart'=>$this->getidcart()
+			]);
+
+			if (count($results) > 0) {
+				return $results[0];
+			} else{
+				return[];
+			}
+
+	}
+
+					////////07/12/2019//////
+					////////ANDERSON DO PASSADO FALANDO: ANDERSON PELO AMOR DE DEUS CUIDADO PRA TU NÃO FAZER MERDA QUANDO
+					/////FOR DA MANUNTENÇÃO NESSA FUNÇÃO, AQUI TU SABE QUE TA PISANDO EM OVOS QUALQUER BR QUE DER VAI TER QUE LIGAR PRO SUPORTE 
+					/////DOS CORREIOS 
+
+
+	public function setFreight($nrzipcode)
+	{		
+
+		$nrzipcode = str_replace('-', '', $nrzipcode);
+
+		$totals = $this->getProductsTotals();
+
+		if ($totals['nrqtd'] > 0) {
+			
+			if ($totals['vlheight'] < 2) $totals['vlheight'] = 2;
+			if ($totals['vllength'] < 16) $totals['vllength'] = 16;
+			if ($totals['vlwidth'] < 11) $totals['vlwidth'] = 11;          
+			$qs = http_build_query([
+
+				'nCdEmpresa' =>	'',
+				'sDsSenha' =>	'',
+				'nCdServico' =>	'40010',
+				'sCepOrigem' =>	'09853120',
+				'sCepDestino' => $nrzipcode,
+				'nVlPeso' => $totals['vlweight'],
+				'nCdFormato' =>	'1',
+				'nVlComprimento' =>	$totals['vllength'],
+				'nVlAltura' =>	$totals['vlheight'],
+				'nVlLargura' =>	$totals['vlwidth'],
+				'nVlDiametro' =>	'0',
+				'sCdMaoPropria' =>	'S',
+				'nVlValorDeclarado' =>	$totals['vlprice'],
+				'sCdAvisoRecebimento' =>	'S'
+				
+
+			]);
+
+
+
+			$xml = simplexml_load_file("http://ws.correios.com.br/calculador/CalcPrecoPrazo.asmx/CalcPrecoPrazo?".$qs);
+
+			$result = $xml->Servicos->cServico;
+
+
+
+			if ($result->MsgErro !=''){
+					///Aqui mostra erro para o úsuario caso tenha
+				Cart::setMsgError($result->MsgErro);
+
+			}else {
+				Cart::clearMsgError();
+			}
+
+			$this->setnrdays($result->PrazoEntrega);
+			$this->setvlfreight(Cart::formatValueToDecimal($result->Valor));
+			$this->setdeszipcode($nrzipcode);
+
+			$this->save();
+
+			return $result;
+
+
+		} else{
+
+		}	
+
+		
+
+
+	}
+
+	////FONÇÃO QUE FORMATA PARA DECIMAL O VALOR DO CARRINHO
+		public static function formatValueToDecimal($value):float
+		{
+			$value = str_replace('.', '', $value);
+			return str_replace(',', '.', $value);	
+		}
+		//Inserindo mensagens de error 
+		public static function setMsgError($msg)
+		{
+
+			$_SESSION[Cart::SESSION_ERROR] = $msg;
+
+		}
+
+		//Pegando mensagem de error
+		public static function getMsgError()
+		{
+			// Validando mensegens de error
+			$msg =  (isset($_SESSION[Cart::SESSION_ERROR])) ? $_SESSION[Cart::SESSION_ERROR] : "";
+			// Para o erro não ficar pra sempre sendo  mostrado no carrinho 
+			Cart::clearMsgError();
+
+			return $msg;
+
+		}
+
+		//Limpando mensagem de error
+		public static function clearMsgError()
+		{
+
+			$_SESSION[Cart::SESSION_ERROR] = NULL;
+
+		}
+
+		///Metodo que atualizar o valor do cep
+		public function updateFreight()
+		{
+
+			if ($this->getdeszipcode() != '') {
+				
+				$this->setFreight($this->getdeszipcode());
+
+			}
+
+		}
+
+		public function  getValues()
+		{
+
+			$this->getCalculateTotal();
+
+			return parent::getValues();
+
+		}
+
+		public function getCalculateTotal()
+		{
+			$this->updateFreight();
+
+			$totals = $this->getProductsTotals();
+
+			$this->setvlsubtotal($totals['vlprice']);
+			$this->setvltotal($totals['vlprice'] + $this->getvlfreight());
+
+		}
+
+
+
+
+
+
 			
 }
 
