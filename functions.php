@@ -10,4 +10,20 @@ function formatPrice($vlprice)
 	return number_format($vlprice, 2, ",", ".");
 
 }
+
+//checando o Login
+function checkLogin($inadmin = true)
+{
+	return User::checkLogin($inadmin);
+
+}
+
+//Pega o nome do usuario logado
+function getUserName()
+{
+
+	$user = User::getFromSession();
+
+	return $user->getdesperson();
+}
 ?>
