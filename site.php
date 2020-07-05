@@ -169,7 +169,9 @@ $app->get("/login", function(){
 	$page = new Page();
 
 	$page->setTpl("login", [
-		'error'=>User::getError()
+		'error'=>User::getError(),
+		'errorRegister'=>User::getErrorRegister(),
+		'registerValues'=>(isset($_SESSION['registerValues'])) ? $_SESSION['registerValues'] : ['name'=>'', 'email'=>'', 'phone'=>'']
 	]);
 
 });
@@ -196,6 +198,69 @@ $app->get("/logout", function(){
 
 	header("Location: /login");
 	exit;
+
+});
+
+$app->post("/register", function(){
+	//Para não limpar todos os dados caso chame algum erro
+	$_SESSION['registerValues'] = $_POST;
+
+	//Se não for definido ou for igual a vazio
+	if (!isset($_POST['name']) || $_POST['name'] == '') {
+		
+		User::setErrorRegister("Preencha o seu nome.");
+		header("Location: /login");
+		exit;
+
+	}
+
+	//Se não for definido ou for igual a vazio
+	/*if (!isset($_POST['emal']) || $_POST['emal'] == '') {
+		
+		User::setErrorRegister("Preencha o seu email.");
+		header("Location: /login");
+		exit;
+
+	}*/
+
+	//Se não for definido ou for igual a vazio
+	if (!isset($_POST['password']) || $_POST['password'] == '') {
+		
+		User::setErrorRegister("Preencha a senha");
+		header("Location: /login");
+		exit;
+
+	}
+
+	//Verificando se o login já existe
+	if (User::checkLoginExists($_POST['email']) === true) {
+		
+		User::setErrorRegister("Este endereço de emai já está sendo usado por outro usuário");
+		header("Location: /login");
+		exit;
+
+	}
+
+
+
+	
+		$user = new User();
+
+		$user->setData([
+			'inadmin'=>0,
+			'deslogin'=>$_POST['email'],
+			'desperson'=>$_POST['name'],
+			'desemail'=>$_POST['email'],
+			'despassword'=>$_POST['password'],
+			'nrphone'=>$_POST['phone']
+		]);
+
+		$user->save();
+
+		User::login($_POST['email'], $_POST['password']);
+
+		header('Location: /checkout');
+		exit;
 
 });
 
