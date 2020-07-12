@@ -4,7 +4,7 @@ use \Hcode\Model\Cart;
 
 function formatPrice($vlprice)
 {
-
+	//se o valor não for maior que zero então valor e zero
 	if (!$vlprice > 0) $vlprice = 0;
 
 	return number_format($vlprice, 2, ",", ".");
